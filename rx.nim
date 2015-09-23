@@ -66,6 +66,17 @@ proc delay[A](o: Observer[A], millis: int): Observer[A] =
     ))
   )
 
+proc concat[A](o1, o2: Observer[A]): Observer[A] =
+  result.addOnSubscribe(proc(s: SimpleSubscriber[A]) =
+    o1.subscribe(subscriber(
+      onNext = s.onNext,
+      onComplete = proc() =
+        o2.subscribe(s),
+      onError = s.onError
+    ))
+  )
+
+
 when isMainModule:
   import future
   let
@@ -73,7 +84,6 @@ when isMainModule:
       .map((x: int) => x * x)
       .filter((x: int) => x > 3)
       .delay(500)
-    o1 = single(6)
+      .concat(single(6))
     s = subscriber[int](println)
   o.subscribe(s)
-  o1.subscribe(s)
