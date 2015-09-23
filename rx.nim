@@ -44,9 +44,10 @@ proc map[A, B](o: Observer[A], f: proc(a: A): B): Observer[B] =
   )
 
 when isMainModule:
+  import future
   let
     o = observer(@[1, 2, 3, 4, 5])
-      .map(proc(x: int): auto = x * x)
+      .map((x: int) => x * x)
     o1 = single(6)
     s = subscriber[int](println)
   o.subscribe(s)
