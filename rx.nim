@@ -1,3 +1,5 @@
+import os
+
 type
   Observer[A] = object
     onSubscribe: proc(s: SimpleSubscriber[A])
@@ -53,12 +55,24 @@ proc filter[A](o: Observer[A], f: proc(a: A): bool): Observer[A] =
     ))
   )
 
+proc delay[A](o: Observer[A], millis: int): Observer[A] =
+  result.addOnSubscribe(proc(s: SimpleSubscriber[A]) =
+    o.subscribe(subscriber(
+      onNext = proc(a: A) =
+        s.onNext(a)
+        sleep(millis),
+      onComplete = s.onComplete,
+      onError = s.onError
+    ))
+  )
+
 when isMainModule:
   import future
   let
     o = observer(@[1, 2, 3, 4, 5])
       .map((x: int) => x * x)
       .filter((x: int) => x > 3)
+      .delay(500)
     o1 = single(6)
     s = subscriber[int](println)
   o.subscribe(s)
