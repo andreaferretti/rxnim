@@ -43,11 +43,22 @@ proc map[A, B](o: Observer[A], f: proc(a: A): B): Observer[B] =
     ))
   )
 
+proc filter[A](o: Observer[A], f: proc(a: A): bool): Observer[A] =
+  result.addOnSubscribe(proc(s: SimpleSubscriber[A]) =
+    o.subscribe(subscriber(
+      onNext = proc(a: A) =
+        if f(a): s.onNext(a),
+      onComplete = s.onComplete,
+      onError = s.onError
+    ))
+  )
+
 when isMainModule:
   import future
   let
     o = observer(@[1, 2, 3, 4, 5])
       .map((x: int) => x * x)
+      .filter((x: int) => x > 3)
     o1 = single(6)
     s = subscriber[int](println)
   o.subscribe(s)
