@@ -25,13 +25,10 @@ proc observer[A](xs: seq[A]): Observer[A] =
 
 proc single[A](a: A): Observer[A] = observer(@[a])
 
-proc subscriber[A](onNext: proc(a: A), onComplete: proc(), onError: proc()): SimpleSubscriber[A] =
+proc subscriber[A](onNext: proc(a: A), onComplete: proc() = noop, onError: proc() = noop): SimpleSubscriber[A] =
   result.onNext = onNext
   result.onComplete = onComplete
   result.onError = onError
-
-proc subscriber[A](onNext: proc(a: A)): SimpleSubscriber[A] =
-  subscriber(onNext, noop, noop)
 
 proc subscribe[A](o: Observer[A], s: SimpleSubscriber[A]) =
   o.onSubscribe(s)
@@ -79,11 +76,9 @@ proc concat[A](o1, o2: Observer[A]): Observer[A] =
 
 when isMainModule:
   import future
-  let
-    o = observer(@[1, 2, 3, 4, 5])
-      .map((x: int) => x * x)
-      .filter((x: int) => x > 3)
-      .delay(500)
-      .concat(single(6))
-    s = subscriber[int](println)
-  o.subscribe(s)
+  observer(@[1, 2, 3, 4, 5])
+    .map((x: int) => x * x)
+    .filter((x: int) => x > 3)
+    .delay(500)
+    .concat(single(6))
+    .subscribe(subscriber[int](println))
