@@ -13,11 +13,11 @@ proc noop(a: auto) = discard
 
 proc println[A](a: A) = echo(a)
 
-proc addOnSubscribe[A](o: var Observer[A], p: proc(s: SimpleSubscriber[A])) =
-  o.onSubscribe = p
+proc create[A](p: proc(s: SimpleSubscriber[A])): Observer[A] =
+  result.onSubscribe = p
 
 proc observer[A](xs: seq[A]): Observer[A] =
-  result.addOnSubscribe(proc(s: SimpleSubscriber[A]) =
+  create(proc(s: SimpleSubscriber[A]) =
     for x in xs:
       s.onNext(x)
     s.onComplete()
@@ -37,7 +37,7 @@ proc subscribe[A](o: Observer[A], s: SimpleSubscriber[A]) =
   o.onSubscribe(s)
 
 proc map[A, B](o: Observer[A], f: proc(a: A): B): Observer[B] =
-  result.addOnSubscribe(proc(s: SimpleSubscriber[B]) =
+  create(proc(s: SimpleSubscriber[B]) =
     o.subscribe(subscriber(
       onNext = proc(a: A) = s.onNext(f(a)),
       onComplete = s.onComplete,
@@ -46,7 +46,7 @@ proc map[A, B](o: Observer[A], f: proc(a: A): B): Observer[B] =
   )
 
 proc filter[A](o: Observer[A], f: proc(a: A): bool): Observer[A] =
-  result.addOnSubscribe(proc(s: SimpleSubscriber[A]) =
+  create(proc(s: SimpleSubscriber[A]) =
     o.subscribe(subscriber(
       onNext = proc(a: A) =
         if f(a): s.onNext(a),
@@ -56,7 +56,7 @@ proc filter[A](o: Observer[A], f: proc(a: A): bool): Observer[A] =
   )
 
 proc delay[A](o: Observer[A], millis: int): Observer[A] =
-  result.addOnSubscribe(proc(s: SimpleSubscriber[A]) =
+  create(proc(s: SimpleSubscriber[A]) =
     o.subscribe(subscriber(
       onNext = proc(a: A) =
         s.onNext(a)
@@ -67,7 +67,7 @@ proc delay[A](o: Observer[A], millis: int): Observer[A] =
   )
 
 proc concat[A](o1, o2: Observer[A]): Observer[A] =
-  result.addOnSubscribe(proc(s: SimpleSubscriber[A]) =
+  create(proc(s: SimpleSubscriber[A]) =
     o1.subscribe(subscriber(
       onNext = s.onNext,
       onComplete = proc() =
