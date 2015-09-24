@@ -1,8 +1,11 @@
 import os
 
 type
-  Observer[A] = object
+  Observable[A] = object
     onSubscribe: proc(s: Subscriber[A])
+  ConnectableObservable[A] = object
+    source: Observable[A]
+    listeners: seq[Subscriber[A]]
   Subscriber[A] = object
     onNext: proc(a: A)
     onComplete: proc()
@@ -13,27 +16,30 @@ proc noop(a: auto) = discard
 
 proc println[A](a: A) = echo(a)
 
-proc create[A](p: proc(s: Subscriber[A])): Observer[A] =
+proc create[A](p: proc(s: Subscriber[A])): Observable[A] =
   result.onSubscribe = p
 
-proc observer[A](xs: seq[A]): Observer[A] =
+proc observer[A](xs: seq[A]): Observable[A] =
   create(proc(s: Subscriber[A]) =
     for x in xs:
       s.onNext(x)
     s.onComplete()
   )
 
-proc single[A](a: A): Observer[A] = observer(@[a])
+proc single[A](a: A): Observable[A] = observer(@[a])
 
 proc subscriber[A](onNext: proc(a: A), onComplete: proc() = noop, onError: proc() = noop): Subscriber[A] =
   result.onNext = onNext
   result.onComplete = onComplete
   result.onError = onError
 
-proc subscribe[A](o: Observer[A], s: Subscriber[A]) =
+proc subscribe[A](o: Observable[A], s: Subscriber[A]) =
   o.onSubscribe(s)
 
-proc map[A, B](o: Observer[A], f: proc(a: A): B): Observer[B] =
+proc subscribe[A](o: var ConnectableObservable[A], s: Subscriber[A]) =
+  o.listeners.add(s)
+
+proc map[A, B](o: Observable[A], f: proc(a: A): B): Observable[B] =
   create(proc(s: Subscriber[B]) =
     o.subscribe(subscriber(
       onNext = proc(a: A) = s.onNext(f(a)),
@@ -42,7 +48,7 @@ proc map[A, B](o: Observer[A], f: proc(a: A): B): Observer[B] =
     ))
   )
 
-proc filter[A](o: Observer[A], f: proc(a: A): bool): Observer[A] =
+proc filter[A](o: Observable[A], f: proc(a: A): bool): Observable[A] =
   create(proc(s: Subscriber[A]) =
     o.subscribe(subscriber(
       onNext = proc(a: A) =
@@ -52,7 +58,7 @@ proc filter[A](o: Observer[A], f: proc(a: A): bool): Observer[A] =
     ))
   )
 
-proc delay[A](o: Observer[A], millis: int): Observer[A] =
+proc delay[A](o: Observable[A], millis: int): Observable[A] =
   create(proc(s: Subscriber[A]) =
     o.subscribe(subscriber(
       onNext = proc(a: A) =
@@ -63,7 +69,7 @@ proc delay[A](o: Observer[A], millis: int): Observer[A] =
     ))
   )
 
-proc concat[A](o1, o2: Observer[A]): Observer[A] =
+proc concat[A](o1, o2: Observable[A]): Observable[A] =
   create(proc(s: Subscriber[A]) =
     o1.subscribe(subscriber(
       onNext = s.onNext,
@@ -73,12 +79,32 @@ proc concat[A](o1, o2: Observer[A]): Observer[A] =
     ))
   )
 
+proc publish[A](o: Observable[A]): ConnectableObservable[A] =
+  result.listeners = @[]
+  result.source = o
+
+proc connect[A](o: ConnectableObservable[A]) =
+  o.source.subscribe(subscriber(
+    onNext = proc(a: A) =
+      for l in o.listeners:
+        l.onNext(a),
+    onComplete = proc() =
+      for l in o.listeners:
+        l.onComplete(),
+    onError = proc() =
+      for l in o.listeners:
+        l.onError()
+  ))
 
 when isMainModule:
   import future
-  observer(@[1, 2, 3, 4, 5])
+  var o = observer(@[1, 2, 3, 4, 5])
     .map((x: int) => x * x)
     .filter((x: int) => x > 3)
     .delay(500)
     .concat(single(6))
-    .subscribe(subscriber[int](println))
+    .publish()
+
+  o.subscribe(subscriber[int](println))
+  o.subscribe(subscriber[int](println))
+  o.connect()
