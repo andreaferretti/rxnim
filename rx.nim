@@ -69,6 +69,17 @@ proc delay[A](o: Observable[A], millis: int): Observable[A] =
     ))
   )
 
+proc delay[A](o: Observable[A], millis: proc(a: A): int): Observable[A] =
+  create(proc(s: Subscriber[A]) =
+    o.subscribe(subscriber(
+      onNext = proc(a: A) =
+        s.onNext(a)
+        sleep(millis(a)),
+      onComplete = s.onComplete,
+      onError = s.onError
+    ))
+  )
+
 proc concat[A](o1, o2: Observable[A]): Observable[A] =
   create(proc(s: Subscriber[A]) =
     o1.subscribe(subscriber(
@@ -101,7 +112,7 @@ when isMainModule:
   var o = observer(@[1, 2, 3, 4, 5])
     .map((x: int) => x * x)
     .filter((x: int) => x > 3)
-    .delay(500)
+    .delay((x: int) => 100 * x)
     .concat(single(6))
     .publish()
 
