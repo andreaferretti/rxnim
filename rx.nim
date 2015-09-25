@@ -80,6 +80,23 @@ proc delay[A](o: Observable[A], millis: proc(a: A): int): Observable[A] =
     ))
   )
 
+proc buffer[A](o: Observable[A], n: int): Observable[seq[A]] =
+  create(proc(s: Subscriber[seq[A]]) =
+    var buffer = newSeq[A](n)
+    var i = 0
+    o.subscribe(subscriber(
+      onNext = proc(a: A) =
+        buffer[i] = a
+        i += 1
+        if i == n:
+          s.onNext(buffer)
+          buffer = newSeq[A](n)
+          i = 0,
+      onComplete = s.onComplete,
+      onError = s.onError
+    ))
+  )
+
 proc concat[A](o1, o2: Observable[A]): Observable[A] =
   create(proc(s: Subscriber[A]) =
     o1.subscribe(subscriber(
@@ -114,8 +131,10 @@ when isMainModule:
     .filter((x: int) => x > 3)
     .delay((x: int) => 100 * x)
     .concat(single(6))
+    .concat(single(3))
+    .buffer(2)
     .publish()
 
-  o.subscribe(subscriber[int](println))
-  o.subscribe(subscriber[int](println))
+  o.subscribe(subscriber[seq[int]](println))
+  o.subscribe(subscriber[seq[int]](println))
   o.connect()
