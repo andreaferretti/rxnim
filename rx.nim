@@ -157,8 +157,8 @@ when isMainModule:
     .concat(single(6))
     .concat(single(3))
     .buffer(2)
-  #   .publish()
+    .publish()
 
   o.subscribe(subscriber[seq[int]](println))
-  # o.subscribe(subscriber[seq[int]](println))
-  # o.connect()
+  o.subscribe(subscriber[seq[int]](println))
+  o.connect()
