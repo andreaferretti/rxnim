@@ -1,4 +1,4 @@
-import os
+import os, threadpool
 
 type
   Observable[A] = object
@@ -107,6 +107,29 @@ proc concat[A](o1, o2: Observable[A]): Observable[A] =
     ))
   )
 
+proc sendToNewThread[A](o: Observable[A]): Observable[A] =
+
+  create(proc(s: Subscriber[A]) =
+    var ch: Channel[A]
+    ch.open()
+
+    proc readFromOtherThread() {.thread.} =
+      while true:
+        let a = ch.recv()
+        s.onNext(a)
+
+    # var th: Thread[void]
+    # createThread[void](th, readFromOtherThread)
+    spawn readFromOtherThread()
+
+    o.subscribe(subscriber(
+      onNext = proc(a: A) =
+        ch.send(a),
+      onComplete = s.onComplete,
+      onError = s.onError
+    ))
+  )
+
 proc publish[A](o: Observable[A]): ConnectableObservable[A] =
   result.listeners = @[]
   result.source = o
@@ -133,8 +156,9 @@ when isMainModule:
     .concat(single(6))
     .concat(single(3))
     .buffer(2)
-    .publish()
+    .sendToNewThread()
+  #   .publish()
 
   o.subscribe(subscriber[seq[int]](println))
-  o.subscribe(subscriber[seq[int]](println))
-  o.connect()
+  # o.subscribe(subscriber[seq[int]](println))
+  # o.connect()
