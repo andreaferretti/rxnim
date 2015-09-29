@@ -153,10 +153,10 @@ when isMainModule:
     .map((x: int) => x * x)
     .filter((x: int) => x > 3)
     .delay((x: int) => 100 * x)
+    .sendToNewThread()
     .concat(single(6))
     .concat(single(3))
     .buffer(2)
-    .sendToNewThread()
   #   .publish()
 
   o.subscribe(subscriber[seq[int]](println))
