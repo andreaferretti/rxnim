@@ -1,4 +1,4 @@
-import os, threadpool
+import os, threadpool, times
 
 type
   Observable[A] = object
@@ -58,6 +58,16 @@ proc filter[A](o: Observable[A], f: proc(a: A): bool): Observable[A] =
     ))
   )
 
+proc concat[A](o1, o2: Observable[A]): Observable[A] =
+  create(proc(s: Subscriber[A]) =
+    o1.subscribe(subscriber(
+      onNext = s.onNext,
+      onComplete = proc() =
+        o2.subscribe(s),
+      onError = s.onError
+    ))
+  )
+
 proc delay[A](o: Observable[A], millis: int): Observable[A] =
   create(proc(s: Subscriber[A]) =
     o.subscribe(subscriber(
@@ -97,12 +107,30 @@ proc buffer[A](o: Observable[A], n: int): Observable[seq[A]] =
     ))
   )
 
-proc concat[A](o1, o2: Observable[A]): Observable[A] =
-  create(proc(s: Subscriber[A]) =
-    o1.subscribe(subscriber(
-      onNext = s.onNext,
-      onComplete = proc() =
-        o2.subscribe(s),
+proc buffer[A](o: Observable[A], t: TimeInterval): Observable[seq[A]] =
+  let millis = t.milliseconds + 1000 * t.seconds # fix this
+
+  create(proc(s: Subscriber[seq[A]]) =
+    var ch: Channel[A]
+    ch.open()
+
+    proc readFromOtherThread() {.thread.} =
+      while true:
+        let n = ch.peek()
+        var
+          buffer = newSeq[A](n)
+          i = 0
+        for i in 0 .. < n:
+          buffer[i] = ch.recv()
+        s.onNext(buffer)
+        sleep(millis)
+
+    spawn readFromOtherThread()
+
+    o.subscribe(subscriber(
+      onNext = proc(a: A) =
+        ch.send(a),
+      onComplete = s.onComplete,
       onError = s.onError
     ))
   )
@@ -148,17 +176,25 @@ proc connect[A](o: ConnectableObservable[A]) =
   ))
 
 when isMainModule:
-  import future
-  var o = observer(@[1, 2, 3, 4, 5])
-    .map((x: int) => x * x)
-    .filter((x: int) => x > 3)
-    .delay((x: int) => 100 * x)
-    .sendToNewThread()
-    .concat(single(6))
-    .concat(single(3))
-    .buffer(2)
-    .publish()
+  import future, sequtils
+  # var o = observer(@[1, 2, 3, 4, 5])
+  #   .map((x: int) => x * x)
+  #   .filter((x: int) => x > 3)
+  #   .delay((x: int) => 100 * x)
+  #   .sendToNewThread()
+  #   .concat(single(6))
+  #   .concat(single(3))
+  #   .buffer(2)
+  #   .publish()
 
-  o.subscribe(subscriber[seq[int]](println))
-  o.subscribe(subscriber[seq[int]](println))
-  o.connect()
+  # o.subscribe(subscriber[seq[int]](println))
+  # o.subscribe(subscriber[seq[int]](println))
+  # o.connect()
+
+  observer(toSeq(1 .. 100))
+    .delay((x: int) => x)
+    .map((x: int) => x * x)
+    .buffer(initInterval(seconds = 1))
+    .subscribe(subscriber[seq[int]](println))
+
+  sync()
