@@ -185,19 +185,19 @@ proc connect*[A](o: ConnectableObservable[A]) =
 
 when isMainModule:
   import future, sequtils
-  # var o = observer(@[1, 2, 3, 4, 5])
-  #   .map((x: int) => x * x)
-  #   .filter((x: int) => x > 3)
-  #   .delay((x: int) => 100 * x)
-  #   .sendToNewThread()
-  #   .concat(single(6))
-  #   .concat(single(3))
-  #   .buffer(2)
-  #   .publish()
+  var o = observer(@[1, 2, 3, 4, 5])
+    .map((x: int) => x * x)
+    .filter((x: int) => x > 3)
+    .delay((x: int) => 100 * x)
+    .sendToNewThread()
+    .concat(single(6))
+    .concat(single(3))
+    .buffer(2)
+    .publish()
 
-  # o.subscribe(subscriber[seq[int]](println))
-  # o.subscribe(subscriber[seq[int]](println))
-  # o.connect()
+  o.subscribe(subscriber[seq[int]](println))
+  o.subscribe(subscriber[seq[int]](println))
+  o.connect()
 
   observer(1 .. 100)
     .delay((x: int) => x)
