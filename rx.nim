@@ -26,7 +26,18 @@ proc observer*[A](xs: seq[A] or Slice[A]): Observable[A] =
     s.onComplete()
   )
 
+proc empty*[A](): Observable[A] =
+  create(proc(s: Subscriber[A]) =
+    s.onComplete()
+  )
+
 proc single*[A](a: A): Observable[A] = observer(@[a])
+
+proc repeat*[A](a: A): Observable[A] =
+  create(proc(s: Subscriber[A]) =
+    while true:
+      s.onNext(a)
+  )
 
 proc subscriber*[A](onNext: proc(a: A), onComplete: proc(), onError: proc()): Subscriber[A] =
   result.onNext = onNext
@@ -61,6 +72,39 @@ proc filter*[A](o: Observable[A], f: proc(a: A): bool): Observable[A] =
     o.subscribe(subscriber(
       onNext = proc(a: A) =
         if f(a): s.onNext(a),
+      onComplete = s.onComplete,
+      onError = s.onError
+    ))
+  )
+
+proc take*[A](o: Observable[A], n: int): Observable[A] =
+  var count = 0
+  create(proc(s: Subscriber[A]) =
+    o.subscribe(subscriber(
+      onNext = proc(a: A) =
+        if count <= n - 1:
+          count += 1
+          s.onNext(a)
+        elif count == n:
+          s.onComplete(),
+      onComplete = proc() =
+        if count < n:
+          s.onComplete(),
+      onError = proc() =
+        if count < n:
+          s.onError()
+    ))
+  )
+
+proc drop*[A](o: Observable[A], n: int): Observable[A] =
+  var count = 0
+  create(proc(s: Subscriber[A]) =
+    o.subscribe(subscriber(
+      onNext = proc(a: A) =
+        if count <= n - 1:
+          count += 1
+        else:
+          s.onNext(a),
       onComplete = s.onComplete,
       onError = s.onError
     ))
@@ -198,6 +242,12 @@ when isMainModule:
   o.subscribe(subscriber[seq[int]](println))
   o.subscribe(subscriber[seq[int]](println))
   o.connect()
+
+  repeat(12)
+    .drop(3)
+    .take(10)
+    .sendToNewThread()
+    .subscribe(subscriber[int](println))
 
   observer(1 .. 100)
     .delay((x: int) => x)
