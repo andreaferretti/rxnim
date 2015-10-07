@@ -1,61 +1,16 @@
-import os, threadpool, times, rx/schedulers
+import os, threadpool, times
+import rx/schedulers, rx/core
 
-export schedulers
+export schedulers, core
 
-type
-  Observable*[A] = object
-    onSubscribe: proc(s: Subscriber[A])
-  ConnectableObservable*[A] = object
-    source: Observable[A]
-    listeners: seq[Subscriber[A]]
-  Subscriber*[A] = object
-    onNext*: proc(a: A)
-    onComplete*: proc()
-    onError*: proc(e: ref Exception)
-
-proc noop*() = discard
-proc noop*(a: auto) = discard
-
-proc println[A](a: A) = echo(a)
-
-proc create*[A](p: proc(s: Subscriber[A])): Observable[A] =
-  result.onSubscribe = p
-
-proc observer*[A](xs: seq[A] or Slice[A]): Observable[A] =
-  create(proc(s: Subscriber[A]) =
-    for x in xs:
-      s.onNext(x)
-    s.onComplete()
-  )
-
-proc empty*[A](): Observable[A] =
-  create(proc(s: Subscriber[A]) =
-    s.onComplete()
-  )
-
-proc single*[A](a: A): Observable[A] = observer(@[a])
-
-proc repeat*[A](a: A): Observable[A] =
-  create(proc(s: Subscriber[A]) =
-    while true:
-      s.onNext(a)
-  )
-
-proc subscriber*[A](onNext: proc(a: A), onComplete: proc(), onError: proc(e: ref Exception)): Subscriber[A] =
-  result.onNext = onNext
-  result.onComplete = onComplete
-  result.onError = onError
-
-proc subscriber*[A](onNext: proc(a: A)): Subscriber[A] =
-  result.onNext = onNext
-  result.onComplete = noop
-  result.onError = noop
-
-proc subscribe*[A](o: Observable[A], s: Subscriber[A]) =
-  o.onSubscribe(s)
+type ConnectableObservable*[A] = object
+  source: Observable[A]
+  listeners: seq[Subscriber[A]]
 
 proc subscribe*[A](o: var ConnectableObservable[A], s: Subscriber[A]) =
   o.listeners.add(s)
+
+proc println[A](a: A) = echo(a)
 
 proc lift[A, B](o: Observable[A], f: proc(s: Subscriber[B], a: A), sch: Scheduler): auto =
   create(proc(s: Subscriber[B]) =
