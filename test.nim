@@ -17,8 +17,8 @@ proc collect[A](t: ref TestResult[A]): Subscriber[A] =
       t.elems.add(a),
     onComplete = proc() =
       t.completed = true,
-    onError = proc() =
-      raise newException(UnexpectedOnError, "fail")
+    onError = proc(e: ref Exception) =
+      raise e
   )
 
 proc `=~`(a, b: float): bool =

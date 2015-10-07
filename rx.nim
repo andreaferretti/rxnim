@@ -9,7 +9,7 @@ type
   Subscriber*[A] = object
     onNext*: proc(a: A)
     onComplete*: proc()
-    onError*: proc()
+    onError*: proc(e: ref Exception)
   Scheduler* = object
     scheduleNow: proc(p: proc())
     scheduleLater: proc(p: proc(), t: TimeInterval)
@@ -60,7 +60,7 @@ proc repeat*[A](a: A): Observable[A] =
       s.onNext(a)
   )
 
-proc subscriber*[A](onNext: proc(a: A), onComplete: proc(), onError: proc()): Subscriber[A] =
+proc subscriber*[A](onNext: proc(a: A), onComplete: proc(), onError: proc(e: ref Exception)): Subscriber[A] =
   result.onNext = onNext
   result.onComplete = onComplete
   result.onError = onError
@@ -113,9 +113,9 @@ proc take*[A](o: Observable[A], n: int): Observable[A] =
       onComplete = proc() =
         if count < n:
           s.onComplete(),
-      onError = proc() =
+      onError = proc(e: ref Exception) =
         if count < n:
-          s.onError()
+          s.onError(e)
     ))
   )
 
@@ -244,42 +244,38 @@ proc connect*[A](o: ConnectableObservable[A]) =
     onComplete = proc() =
       for l in o.listeners:
         l.onComplete(),
-    onError = proc() =
+    onError = proc(e: ref Exception) =
       for l in o.listeners:
-        l.onError()
+        l.onError(e)
   ))
 {.pop.}
 
 when isMainModule:
   import future, sequtils
-  # var o = observer(@[1, 2, 3, 4, 5])
-  #   .map((x: int) => x * x)
-  #   .filter((x: int) => x > 3)
-  #   .delay((x: int) => 100 * x)
-  #   .sendToNewThread()
-  #   .concat(single(6))
-  #   .concat(single(3))
-  #   .buffer(2)
-  #   .publish()
-  #
-  # o.subscribe(subscriber[seq[int]](println))
-  # o.subscribe(subscriber[seq[int]](println))
-  # o.connect()
-  #
-  # repeat(12)
-  #   .drop(3)
-  #   .take(10)
-  #   .sendToNewThread()
-  #   .subscribe(subscriber[int](println))
-  #
-  # observer(1 .. 100)
-  #   .delay((x: int) => x)
-  #   .map((x: int) => x * x)
-  #   .buffer(initInterval(seconds = 1))
-  #   .subscribe(subscriber[seq[int]](println))
-  let imm = immediateScheduler()
-  imm.schedule(proc() =
-    echo "Scheduled operation"
-  )
+  var o = observer(@[1, 2, 3, 4, 5])
+    .map((x: int) => x * x)
+    .filter((x: int) => x > 3)
+    .delay((x: int) => 100 * x)
+    .sendToNewThread()
+    .concat(single(6))
+    .concat(single(3))
+    .buffer(2)
+    .publish()
+
+  o.subscribe(subscriber[seq[int]](println))
+  o.subscribe(subscriber[seq[int]](println))
+  o.connect()
+
+  repeat(12)
+    .drop(3)
+    .take(10)
+    .sendToNewThread()
+    .subscribe(subscriber[int](println))
+
+  observer(1 .. 100)
+    .delay((x: int) => x)
+    .map((x: int) => x * x)
+    .buffer(initInterval(seconds = 1))
+    .subscribe(subscriber[seq[int]](println))
 
   sync()
