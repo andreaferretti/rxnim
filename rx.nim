@@ -82,8 +82,11 @@ proc map*[A, B](o: Observable[A], f: proc(a: A): B, sch = immediateScheduler()):
       onNext = proc(a: A) = sch.schedule(proc() =
         s.onNext(f(a))
       ),
-      onComplete = s.onComplete,
-      onError = s.onError
+      onComplete = proc() =
+        sch.schedule(s.onComplete),
+      onError = proc(e: ref Exception) = sch.schedule(proc() =
+        s.onError(e)
+      )
     ))
   )
 
