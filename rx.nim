@@ -76,10 +76,12 @@ proc subscribe*[A](o: Observable[A], s: Subscriber[A]) =
 proc subscribe*[A](o: var ConnectableObservable[A], s: Subscriber[A]) =
   o.listeners.add(s)
 
-proc map*[A, B](o: Observable[A], f: proc(a: A): B): Observable[B] =
+proc map*[A, B](o: Observable[A], f: proc(a: A): B, sch = immediateScheduler()): Observable[B] =
   create(proc(s: Subscriber[B]) =
     o.subscribe(subscriber(
-      onNext = proc(a: A) = s.onNext(f(a)),
+      onNext = proc(a: A) = sch.schedule(proc() =
+        s.onNext(f(a))
+      ),
       onComplete = s.onComplete,
       onError = s.onError
     ))
