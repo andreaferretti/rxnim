@@ -93,13 +93,17 @@ proc map*[A, B](o: Observable[A], f: proc(a: A): B, sch = immediateScheduler()):
 proc foreach*[A](o: Observable[A], f: proc(a: A)) =
   o.subscribe(subscriber[A](f))
 
-proc filter*[A](o: Observable[A], f: proc(a: A): bool): Observable[A] =
+proc filter*[A](o: Observable[A], f: proc(a: A): bool, sch = immediateScheduler()): Observable[A] =
   create(proc(s: Subscriber[A]) =
     o.subscribe(subscriber(
-      onNext = proc(a: A) =
-        if f(a): s.onNext(a),
-      onComplete = s.onComplete,
-      onError = s.onError
+      onNext = proc(a: A) = sch.schedule(proc() =
+        if f(a): s.onNext(a)
+      ),
+      onComplete = proc() =
+        sch.schedule(s.onComplete),
+      onError = proc(e: ref Exception) = sch.schedule(proc() =
+        s.onError(e)
+      )
     ))
   )
 
