@@ -76,11 +76,11 @@ proc subscribe*[A](o: Observable[A], s: Subscriber[A]) =
 proc subscribe*[A](o: var ConnectableObservable[A], s: Subscriber[A]) =
   o.listeners.add(s)
 
-proc map*[A, B](o: Observable[A], f: proc(a: A): B, sch = immediateScheduler()): Observable[B] =
+proc lift[A, B](o: Observable[A], f: proc(s: Subscriber[B], a: A), sch: Scheduler): auto =
   create(proc(s: Subscriber[B]) =
     o.subscribe(subscriber(
       onNext = proc(a: A) = sch.schedule(proc() =
-        s.onNext(f(a))
+        f(s, a)
       ),
       onComplete = proc() =
         sch.schedule(s.onComplete),
@@ -89,23 +89,18 @@ proc map*[A, B](o: Observable[A], f: proc(a: A): B, sch = immediateScheduler()):
       )
     ))
   )
+
+proc map*[A, B](o: Observable[A], f: proc(a: A): B, sch = immediateScheduler()): Observable[B] =
+  lift[A, B](o, proc(s: Subscriber[B], a: A) = s.onNext(f(a)), sch)
 
 proc foreach*[A](o: Observable[A], f: proc(a: A)) =
   o.subscribe(subscriber[A](f))
 
 proc filter*[A](o: Observable[A], f: proc(a: A): bool, sch = immediateScheduler()): Observable[A] =
-  create(proc(s: Subscriber[A]) =
-    o.subscribe(subscriber(
-      onNext = proc(a: A) = sch.schedule(proc() =
-        if f(a): s.onNext(a)
-      ),
-      onComplete = proc() =
-        sch.schedule(s.onComplete),
-      onError = proc(e: ref Exception) = sch.schedule(proc() =
-        s.onError(e)
-      )
-    ))
-  )
+  lift[A, A](o,
+    proc(s: Subscriber[A], a: A) =
+      if f(a): s.onNext(a),
+    sch)
 
 proc take*[A](o: Observable[A], n: int): Observable[A] =
   var count = 0
