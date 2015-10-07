@@ -150,14 +150,17 @@ proc concat*[A](o1, o2: Observable[A]): Observable[A] =
     ))
   )
 
-proc delay*[A](o: Observable[A], millis: int): Observable[A] =
+proc delay*[A](o: Observable[A], t: TimeInterval, sch = immediateScheduler()): Observable[A] =
   create(proc(s: Subscriber[A]) =
     o.subscribe(subscriber(
-      onNext = proc(a: A) =
+      onNext = proc(a: A) = sch.schedule(proc() =
         s.onNext(a)
-        sleep(millis),
-      onComplete = s.onComplete,
-      onError = s.onError
+      , t),
+      onComplete = proc() =
+        sch.schedule(s.onComplete),
+      onError = proc(e: ref Exception) = sch.schedule(proc() =
+        s.onError(e)
+      )
     ))
   )
 

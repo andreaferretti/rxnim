@@ -85,7 +85,7 @@ suite "delay operators":
   test "delay with a fixed interval":
     var t = tester[int]()
     let before = epochTime()
-    o.delay(200).subscribe(collect(t))
+    o.delay(initInterval(milliseconds = 200)).subscribe(collect(t))
     let after = epochTime()
     check t.elems == @[1, 2, 3, 4, 5]
     check t.completed
