@@ -10,6 +10,27 @@ type
     onNext*: proc(a: A)
     onComplete*: proc()
     onError*: proc()
+  Scheduler* = object
+    scheduleNow: proc(p: proc())
+    scheduleLater: proc(p: proc(), t: TimeInterval)
+    now*: proc(): Time
+
+template millis(t: TimeInterval): auto =
+  t.milliseconds + 1000 * t.seconds # fix me
+
+template schedule(s: Scheduler, p: expr) =
+  s.scheduleNow(p)
+
+template schedule(s: Scheduler, p, t: expr) =
+  s.scheduleLater(p, t)
+
+proc immediateScheduler*(): Scheduler =
+  result.scheduleNow = proc(p: proc()) = p()
+  result.scheduleLater = proc(p: proc(), t: TimeInterval) =
+    sleep(t.millis)
+    p()
+  result.now = proc(): Time =
+    epochTime().fromSeconds()
 
 proc noop*() = discard
 proc noop*(a: auto) = discard
@@ -229,30 +250,34 @@ proc connect*[A](o: ConnectableObservable[A]) =
 
 when isMainModule:
   import future, sequtils
-  var o = observer(@[1, 2, 3, 4, 5])
-    .map((x: int) => x * x)
-    .filter((x: int) => x > 3)
-    .delay((x: int) => 100 * x)
-    .sendToNewThread()
-    .concat(single(6))
-    .concat(single(3))
-    .buffer(2)
-    .publish()
-
-  o.subscribe(subscriber[seq[int]](println))
-  o.subscribe(subscriber[seq[int]](println))
-  o.connect()
-
-  repeat(12)
-    .drop(3)
-    .take(10)
-    .sendToNewThread()
-    .subscribe(subscriber[int](println))
-
-  observer(1 .. 100)
-    .delay((x: int) => x)
-    .map((x: int) => x * x)
-    .buffer(initInterval(seconds = 1))
-    .subscribe(subscriber[seq[int]](println))
+  # var o = observer(@[1, 2, 3, 4, 5])
+  #   .map((x: int) => x * x)
+  #   .filter((x: int) => x > 3)
+  #   .delay((x: int) => 100 * x)
+  #   .sendToNewThread()
+  #   .concat(single(6))
+  #   .concat(single(3))
+  #   .buffer(2)
+  #   .publish()
+  #
+  # o.subscribe(subscriber[seq[int]](println))
+  # o.subscribe(subscriber[seq[int]](println))
+  # o.connect()
+  #
+  # repeat(12)
+  #   .drop(3)
+  #   .take(10)
+  #   .sendToNewThread()
+  #   .subscribe(subscriber[int](println))
+  #
+  # observer(1 .. 100)
+  #   .delay((x: int) => x)
+  #   .map((x: int) => x * x)
+  #   .buffer(initInterval(seconds = 1))
+  #   .subscribe(subscriber[seq[int]](println))
+  let imm = immediateScheduler()
+  imm.schedule(proc() =
+    echo "Scheduled operation"
+  )
 
   sync()
