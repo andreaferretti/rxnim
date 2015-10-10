@@ -12,7 +12,7 @@ proc noop*(a: auto) = discard
 proc create*[A](p: proc(s: Subscriber[A])): Observable[A] =
   result.onSubscribe = p
 
-proc observer*[A](xs: seq[A] or Slice[A]): Observable[A] =
+proc observable*[A](xs: seq[A] or Slice[A]): Observable[A] =
   create(proc(s: Subscriber[A]) =
     for x in xs:
       s.onNext(x)
@@ -24,7 +24,7 @@ proc empty*[A](): Observable[A] =
     s.onComplete()
   )
 
-proc single*[A](a: A): Observable[A] = observer(@[a])
+proc single*[A](a: A): Observable[A] = observable(@[a])
 
 proc repeat*[A](a: A): Observable[A] =
   create(proc(s: Subscriber[A]) =

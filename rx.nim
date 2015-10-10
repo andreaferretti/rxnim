@@ -169,7 +169,7 @@ proc sendToNewThread*[A](o: Observable[A]): Observable[A] =
 
 when isMainModule:
   import future, sequtils
-  var o = observer(@[1, 2, 3, 4, 5])
+  var o = observable(@[1, 2, 3, 4, 5])
     .map((x: int) => x * x)
     .filter((x: int) => x > 3)
     .delay((x: int) => 100 * x)
@@ -189,7 +189,7 @@ when isMainModule:
     .sendToNewThread()
     .subscribe(subscriber[int](println))
 
-  observer(1 .. 100)
+  observable(1 .. 100)
     .delay((x: int) => x)
     .map((x: int) => x * x)
     .buffer(initInterval(seconds = 1))
