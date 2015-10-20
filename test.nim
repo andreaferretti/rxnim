@@ -17,8 +17,8 @@ proc collect[A](t: ref TestResult[A]): Subscriber[A] =
       t.elems.add(a),
     onComplete = proc() =
       t.completed = true,
-    onError = proc() =
-      raise newException(UnexpectedOnError, "fail")
+    onError = proc(e: ref Exception) =
+      raise e
   )
 
 proc `=~`(a, b: float): bool =
@@ -37,17 +37,17 @@ suite "basic observables":
     check t.completed
   test "seq observable":
     var t = tester[int]()
-    rx.observer(@[1, 2, 3, 4]).subscribe(collect(t))
+    rx.observable(@[1, 2, 3, 4]).subscribe(collect(t))
     check t.elems == @[1, 2, 3, 4]
     check t.completed
   test "range observable":
     var t = tester[int]()
-    rx.observer(1 .. 10).subscribe(collect(t))
+    rx.observable(1 .. 10).subscribe(collect(t))
     check t.elems == @[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     check t.completed
 
 suite "basic operators":
-  let o = observer(1 .. 5)
+  let o = observable(1 .. 5)
 
   test "map":
     var t = tester[int]()
@@ -80,12 +80,12 @@ suite "basic operators":
     check t.elems == @[1, 2, 3, 4, 5]
 
 suite "delay operators":
-  let o = observer(1 .. 5)
+  let o = observable(1 .. 5)
 
   test "delay with a fixed interval":
     var t = tester[int]()
     let before = epochTime()
-    o.delay(200).subscribe(collect(t))
+    o.delay(initInterval(milliseconds = 200)).subscribe(collect(t))
     let after = epochTime()
     check t.elems == @[1, 2, 3, 4, 5]
     check t.completed
