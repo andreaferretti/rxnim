@@ -7,4 +7,5 @@ task run, "run rx":
 task tests, "test rx":
   --threads: on
   --run
+  --path: "."
   setCommand "c", "test"

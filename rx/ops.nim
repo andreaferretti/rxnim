@@ -1,5 +1,5 @@
 import times, os, threadpool
-import rx/core, rx/schedulers
+import "./core", "./schedulers"
 
 proc lift[A, B](o: Observable[A], f: proc(s: Subscriber[B], a: A), sch: Scheduler): auto =
   create(proc(s: Subscriber[B]) =

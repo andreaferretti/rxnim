@@ -1,4 +1,4 @@
-import rx/core
+import "./core"
 
 type ConnectableObservable*[A] = object
   source: Observable[A]
